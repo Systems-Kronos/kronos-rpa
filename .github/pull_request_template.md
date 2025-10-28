@@ -6,10 +6,10 @@ Descreva de forma clara e objetiva o que foi desenvolvido ou alterado.
 
 ## ✅ Checklist
 
-- [S] Código testado localmente
-- [S] Nenhum erro no build
-- [S] PR está seguindo a estrutura definida
-- [S] Revisado por pelo menos uma pessoa
+- [] Código testado localmente
+- [] Nenhum erro no build
+- [] PR está seguindo a estrutura definida
+- [] Revisado por pelo menos uma pessoa
 
 ---
 
