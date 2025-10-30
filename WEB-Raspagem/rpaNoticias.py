@@ -8,8 +8,22 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",  # dev
+    "https://kronos-plataforma-react.onrender.com"  # produção
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 CHROME_DRIVER_PATH = '/usr/bin/chromedriver'
 CHROME_BIN_PATH = '/usr/bin/chromium'
@@ -20,14 +34,11 @@ def principal_root():
     url_site = "https://noticias.portaldaindustria.com.br/busca/?q=f%C3%A1brica"
     
     options = Options()
-
     options.binary_location = CHROME_BIN_PATH 
-
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-dev-shm-usage")
-
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
     options.add_argument("--disable-blink-features=AutomationControlled")
