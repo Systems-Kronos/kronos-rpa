@@ -1,0 +1,38 @@
+name: Sincronização Periódica dos Bancos de Dados (Primeiro e Segundo anos)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */1 * * *'
+
+jobs:
+  sincronizar:
+    name: Rodar Sincronização P-S e S-P
+    
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Baixar código (Checkout)
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 3. Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: 4. Executar Sincronização (Primário -> Secundário)
+        env:
+          DATABASE_URL_PRIMARIO: ${{ secrets.DB_PRIMARIO_CONFIG }}
+          DATABASE_URL_SECUNDARIO: ${{ secrets.DB_SECUNDARIO_CONFIG }}
+        run: python cdc_app.py
+
+      - name: 5. Executar Sincronização Inversa (Secundário -> Primário)
+        env:
+          DATABASE_URL_PRIMARIO: ${{ secrets.DB_PRIMARIO_CONFIG }}
+          DATABASE_URL_SECUNDARIO: ${{ secrets.DB_SECUNDARIO_CONFIG }}
+        run: python cdc_crud.py
