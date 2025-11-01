@@ -7,6 +7,5 @@ python-dotenv
 psycopg2-binary
 webdriver-manager
 bcrypt
-json
 gender_guesser
 thefuzz
