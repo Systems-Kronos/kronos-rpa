@@ -29,10 +29,10 @@ jobs:
         env:
           DATABASE_URL_PRIMARIO: ${{ secrets.DB_PRIMARIO_CONFIG }}
           DATABASE_URL_SECUNDARIO: ${{ secrets.DB_SECUNDARIO_CONFIG }}
-        run: python rpa-banco\cdc_app.py
+        run: python rpa-banco/cdc_app.py
 
       - name: 5. Executar Sincronização Inversa (Secundário -> Primário)
         env:
           DATABASE_URL_PRIMARIO: ${{ secrets.DB_PRIMARIO_CONFIG }}
           DATABASE_URL_SECUNDARIO: ${{ secrets.DB_SECUNDARIO_CONFIG }}
-        run: python rpa-banco\cdc_crud.py
+        run: python rpa-banco/cdc_crud.py
