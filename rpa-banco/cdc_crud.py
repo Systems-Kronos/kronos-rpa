@@ -198,6 +198,22 @@ def sincronizar_updates_usuarios(cur_p, cur_s, mapas):
     
     print(f"   -> Verificação concluída. {total_atualizado} usuários foram atualizados.")
 
+def logar_insercao(cur_s, nome_tabela, id_origem, id_destino, linha_primario_dict):
+    snapshot_json = json.dumps(linha_primario_dict, default=str)
+    try:
+        cur_s.execute(
+            """
+            INSERT INTO table_log.rpa_mapa_ids (cNmTabela, nCdOrigem, nCdDestino, jLinhaPrimariaAnterior)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (cNmTabela, nCdOrigem) DO UPDATE
+            SET nCdDestino             = EXCLUDED.nCdDestino
+              , jLinhaPrimariaAnterior = EXCLUDED.jLinhaPrimariaAnterior;
+            """,
+            (nome_tabela, id_origem, id_destino, snapshot_json)
+        )
+    except Exception as e:
+        print(f"    Erro ao logar inserção para {nome_tabela} (ID Origem: {id_origem}): {e}")
+
 def sincronizar_novos_usuarios(cur_p, cur_s, mapas):
     print("\n--- 3. Procurando INSERTS [usuario] (S -> P) ---")
     
@@ -253,6 +269,8 @@ def sincronizar_novos_usuarios(cur_p, cur_s, mapas):
                 total_inseridos += 1
                 print(f"   Usuário Inserido (ID P: {novo_id_p})")
 
+                logar_insercao(cur_s, 'usuario', id_s, novo_id_p, dados_p_novo)
+
             except Exception as e_item:
                 print(f"   Erro: Falha ao inserir Usuário S:{id_s}: {e_item}")
                 try: cur_p.connection.rollback()
@@ -288,6 +306,7 @@ def sincronizar_habilidades(cur_p, cur_s, mapas):
         cur_p.execute("SELECT fk_usuario_id, fk_habilidade_id FROM public.usuario_habilidade")
         for linha_p in cur_p:
             links_p_atuais.add((linha_p['fk_usuario_id'], linha_p['fk_habilidade_id']))
+            
     except Exception as e:
         print(f"  [ERRO] Não consegui ler 'usuario_habilidade' do Primário: {e}")
         return
@@ -341,6 +360,8 @@ def main():
         sincronizar_updates_usuarios(cur_p, cur_s, mapas)
         
         sincronizar_novos_usuarios(cur_p, cur_s, mapas)
+
+        mapas = carregar_mapas_traducao(cur_s)
 
         sincronizar_habilidades(cur_p, cur_s, mapas)
 
