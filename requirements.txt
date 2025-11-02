@@ -6,3 +6,6 @@ beautifulsoup4
 python-dotenv
 psycopg2-binary
 webdriver-manager
+bcrypt
+gender_guesser
+thefuzz
