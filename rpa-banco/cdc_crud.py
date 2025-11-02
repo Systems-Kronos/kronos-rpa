@@ -198,8 +198,70 @@ def sincronizar_updates_usuarios(cur_p, cur_s, mapas):
     
     print(f"   -> Verificação concluída. {total_atualizado} usuários foram atualizados.")
 
+def sincronizar_novos_usuarios(cur_p, cur_s, mapas):
+    print("\n--- 3. Procurando INSERTS [usuario] (S -> P) ---")
+    
+    mapa_usuarios_s_para_p = mapas['usuario']
+    mapa_setores_s_para_p = mapas['Setor']
+        
+    total_usuarios = len(mapa_usuarios_s_para_p)
+    total_inseridos = 0
+    
+    print(f"   -> Verificando existência de usuários para inserção...")
+    
+    cur_s.execute("SELECT nCdUsuario FROM public.Usuario")
+    todos_ids_s = {linha['ncdusuario'] for linha in cur_s.fetchall()}
+
+    for id_s in todos_ids_s:
+        if id_s not in mapa_usuarios_s_para_p:
+            try:
+                cur_s.execute("SELECT * FROM public.Usuario WHERE nCdUsuario = %s", (id_s,))
+                linha_s = cur_s.fetchone()
+                
+                if not linha_s:
+                    continue 
+
+                dados_p_novo = {}
+                dados_p_novo['nome'] = linha_s['cnmusuario']
+                dados_p_novo['cpf'] = linha_s['ccpf']
+                dados_p_novo['status'] = 'Ativo' if bool(linha_s['bativo']) else 'Inativo'
+                dados_p_novo['cargo'] = buscar_nome_cargo(cur_s, linha_s['ncdcargo'])
+                dados_p_novo['genero'] = descobrir_genero(linha_s['cnmusuario'])
+                dados_p_novo['senha'] = linha_s['csenha'] if not str(linha_s['csenha']).startswith('$2') else '***hashed***'
+                
+                id_s_setor = linha_s.get('ncdsetor')
+                dados_p_novo['fk_setor_id'] = mapa_setores_s_para_p.get(id_s_setor)
+                
+                id_s_gestor = linha_s.get('ncdgestor')
+                dados_p_novo['fk_supervisor_id'] = mapa_usuarios_s_para_p.get(id_s_gestor) if id_s_gestor else 'lastval()'                
+
+                if dados_p_novo['fk_supervisor_id'] == 'lastval()':
+                    del dados_p_novo['fk_supervisor_id']
+                    colunas = ", ".join(dados_p_novo.keys()) + ", fk_supervisor_id"
+                    valores_placeholder = ", ".join(["%s"] * len(dados_p_novo)) + ", lastval()"
+                else:
+                    colunas = ", ".join(dados_p_novo.keys())
+                    valores_placeholder = ", ".join(["%s"] * len(dados_p_novo))
+
+                valores = list(dados_p_novo.values())
+                
+                sql_insert = f"INSERT INTO public.usuario ({colunas}) VALUES ({valores_placeholder}) RETURNING id;"
+                cur_p.execute(sql_insert, valores)
+                novo_id_p = cur_p.fetchone()['id']
+                
+                mapa_usuarios_s_para_p[id_s] = novo_id_p
+                total_inseridos += 1
+                print(f"   Usuário Inserido (ID P: {novo_id_p})")
+
+            except Exception as e_item:
+                print(f"   Erro: Falha ao inserir Usuário S:{id_s}: {e_item}")
+                try: cur_p.connection.rollback()
+                except: pass
+    
+    print(f"   -> Verificação concluída. {total_inseridos} usuários foram inseridos.")
+
 def sincronizar_habilidades(cur_p, cur_s, mapas):
-    print("\n--- 3. Sincronizando Habilidades (S -> P) ---")
+    print("\n--- 4. Sincronizando Habilidades (S -> P) ---")
     
     mapa_usuarios_s_para_p = mapas['usuario']
     mapa_habilidades_s_para_p = mapas['Habilidade']
@@ -278,6 +340,8 @@ def main():
         
         sincronizar_updates_usuarios(cur_p, cur_s, mapas)
         
+        sincronizar_novos_usuarios(cur_p, cur_s, mapas)
+
         sincronizar_habilidades(cur_p, cur_s, mapas)
 
         print("\n--- FIM DA SINCRONIZAÇÃO ---")
