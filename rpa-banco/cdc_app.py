@@ -132,6 +132,58 @@ def gerar_sigla(nome):
         
     return nome[:3].upper()
 
+def formatar_telefone(telefone):
+    if not telefone:
+        return None
+
+    numeros = ''.join(filter(str.isdigit, telefone))
+
+    if len(numeros) == 10:  
+        return f"({numeros[:2]}) {numeros[2:6]}-{numeros[6:]}"
+    elif len(numeros) == 11:  
+        return f"({numeros[:2]}) {numeros[2:7]}-{numeros[7:]}"
+    else:
+        return telefone
+    
+def formatar_cep(cep):
+    if not cep:
+        return None
+
+    numeros = ''.join(filter(str.isdigit, cep))
+
+    if len(numeros) == 8:
+        return f"{numeros[:5]}-{numeros[5:]}"
+    else:
+        return cep
+
+def formatar_cnpj(cnpj):
+    if not cnpj:
+        return None
+
+    numeros = ''.join(filter(str.isdigit, cnpj))
+
+    if len(numeros) == 14:
+        return f"{numeros[:2]}.{numeros[2:5]}.{numeros[5:8]}/{numeros[8:12]}-{numeros[12:]}"
+    else:
+        return cnpj
+    
+def formatar_email(email):
+    if not email:
+        return ''
+
+    return email.strip().lower()
+
+def formatar_cpf(cpf): 
+    if not cpf:
+        return None
+
+    numeros = ''.join(filter(str.isdigit, cpf))
+
+    if len(numeros) == 11:
+        return f"{numeros[:3]}.{numeros[3:6]}.{numeros[6:9]}-{numeros[9:]}"
+    else:
+        return cpf
+
 def processar_cargo(cursor_secundario, cargo_texto_origem):
     """
     Estamos aplicando a lógica Fuzzy Matching pois no banco primário, a coluna de cargo é um texto na tabela usuário, e para impedir que haja repetição na tabela de cargo no banco secundário (Ex.: 1-DesenvolvedOr; 2-DesenvolvedorA) essas funções encontram valores próximos e aplicam, porém existe uma taxa de erros possíveis.
@@ -327,11 +379,19 @@ def pre_processar_administracao(cur_p, cur_s, linha_p_dict, mapa_log_completo):
         hash_bcrypt = bcrypt.hashpw(senha_bytes, salt).decode('utf-8')
         linha_p_dict['senha'] = hash_bcrypt
         
+
+    linha_p_dict['email'] = formatar_email(linha_p_dict.get('email'))
+    
     return linha_p_dict
 
 def pre_processar_empresa(cur_p, cur_s, linha_p_dict, mapa_log_completo):
     linha_p_dict['sigla'] = gerar_sigla(linha_p_dict['nome'])
     
+    linha_p_dict['telefone'] = formatar_telefone(linha_p_dict.get('telefone'))
+    linha_p_dict['cep'] = formatar_cep(linha_p_dict.get('cep'))
+    linha_p_dict['cnpj'] = formatar_cnpj(linha_p_dict.get('cnpj'))
+    linha_p_dict['email'] = formatar_email(linha_p_dict.get('email'))
+
     mapa_planos = mapa_log_completo['Planos']
     mapa_plano_origem = mapa_planos.get(linha_p_dict['fk_plano_id'])
     if not mapa_plano_origem:
@@ -366,6 +426,12 @@ def pre_processar_usuario(cur_p, cur_s, linha_p_dict, mapa_log_completo):
     linha_p_dict['bGestor'] = True
 
     linha_p_dict['bAtivo'] = True if linha_p_dict.get('status') == 'Ativo' else False
+
+    linha_p_dict['cpf'] = formatar_cpf(linha_p_dict.get('cpf'))
+
+    linha_p_dict['email'] = formatar_email(linha_p_dict.get('email')) if linha_p_dict.get('email') else ''
+
+    linha_p_dict['telefone'] = formatar_telefone(linha_p_dict.get('telefone'))
     
     mapa_setores = mapa_log_completo['Setor']
     mapa_setor_origem = mapa_setores.get(linha_p_dict['fk_setor_id'])
@@ -618,7 +684,7 @@ def executar_sincronizacao(cur_p, cur_s):
         'pk_p': 'id', 'pk_s': 'nCdUsuario',
         'mapa_colunas': {
             'nome': 'cNmUsuario', 'cpf': 'cCPF', 'senha': 'cSenha', 'bGestor': 'bGestor',
-            'nCdEmpresa': 'nCdEmpresa', 'nCdSetor': 'nCdSetor', 'nCdCargo': 'nCdCargo', 'nCdGestor': 'nCdGestor', 'telefone': 'cTelefone', 'bAtivo': 'bAtivo'
+            'nCdEmpresa': 'nCdEmpresa', 'nCdSetor': 'nCdSetor', 'nCdCargo': 'nCdCargo', 'nCdGestor': 'nCdGestor', 'telefone': 'cTelefone', 'bAtivo': 'bAtivo', 'email': 'cEmail'
         },
         'preprocessar': pre_processar_usuario 
     }
