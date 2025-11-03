@@ -175,6 +175,7 @@ def sincronizar_updates_usuarios(cur_p, cur_s, mapas):
             dados_p_desejado['status'] = 'Ativo' if bool(linha_s['bativo']) else 'Inativo'
             dados_p_desejado['cargo'] = buscar_nome_cargo(cur_s, linha_s['ncdcargo'])
             dados_p_desejado['telefone'] = desformatar_telefone(linha_s['ctelefone'])
+            dados_p_desejado['senha'] = linha_s['csenha'] if not str(linha_s['csenha']).startswith('$2') else 'criptografadoSegundoAnoBcrypt$2'
             
             id_s_setor = linha_s.get('ncdsetor')
             dados_p_desejado['fk_setor_id'] = mapa_setores_s_para_p.get(id_s_setor)
@@ -251,7 +252,7 @@ def sincronizar_novos_usuarios(cur_p, cur_s, mapas):
                 dados_p_novo['cargo'] = buscar_nome_cargo(cur_s, linha_s['ncdcargo'])
                 dados_p_novo['genero'] = descobrir_genero(linha_s['cnmusuario'])
                 dados_p_novo['telefone'] = desformatar_telefone(linha_s['ctelefone'])
-                dados_p_novo['senha'] = linha_s['csenha'] if not str(linha_s['csenha']).startswith('$2') else '***hashed***'
+                dados_p_novo['senha'] = linha_s['csenha'] if not str(linha_s['csenha']).startswith('$2') else 'criptografadoSegundoAnoBcrypt$2'
                 
                 id_s_setor = linha_s.get('ncdsetor')
                 dados_p_novo['fk_setor_id'] = mapa_setores_s_para_p.get(id_s_setor)
