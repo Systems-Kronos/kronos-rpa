@@ -341,7 +341,7 @@ def sincronizar_tabela_generica(cur_p, cur_s, config_tabela, mapa_log_completo):
                 continue
             val_s_atual = linha_s[col_s_lower]
             
-            if str(val_p_atual) != str(val_p_anterior):
+            if str(val_p_atual) != str(val_p_anterior) and val_p_atual != None:
                 if str(val_s_atual) != str(val_p_anterior):
                     logar_conflito(cur_s, NOME_TABELA_S, id_destino, col_s, val_p_atual, val_s_atual)
                     dados_para_update[col_s] = val_p_atual
@@ -422,6 +422,8 @@ def pre_processar_usuario(cur_p, cur_s, linha_p_dict, mapa_log_completo):
         salt = bcrypt.gensalt(rounds=10) 
         hash_bcrypt = bcrypt.hashpw(senha_bytes, salt).decode('utf-8')
         linha_p_dict['senha'] = hash_bcrypt
+    else:
+        linha_p_dict['senha'] = None
 
     linha_p_dict['bGestor'] = True
 
