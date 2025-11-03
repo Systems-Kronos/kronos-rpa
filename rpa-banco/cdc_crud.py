@@ -198,15 +198,93 @@ def sincronizar_updates_usuarios(cur_p, cur_s, mapas):
     
     print(f"   -> Verificação concluída. {total_atualizado} usuários foram atualizados.")
 
+def logar_insercao(cur_s, nome_tabela, id_origem, id_destino, linha_primario_dict):
+    snapshot_json = json.dumps(linha_primario_dict, default=str)
+    try:
+        cur_s.execute(
+            """
+            INSERT INTO table_log.rpa_mapa_ids (cNmTabela, nCdOrigem, nCdDestino, jLinhaPrimariaAnterior)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (cNmTabela, nCdOrigem) DO UPDATE
+            SET nCdDestino             = EXCLUDED.nCdDestino
+              , jLinhaPrimariaAnterior = EXCLUDED.jLinhaPrimariaAnterior;
+            """,
+            (nome_tabela, id_origem, id_destino, snapshot_json)
+        )
+    except Exception as e:
+        print(f"    Erro ao logar inserção para {nome_tabela} (ID Origem: {id_origem}): {e}")
+
+def sincronizar_novos_usuarios(cur_p, cur_s, mapas):
+    print("\n--- 3. Procurando INSERTS [usuario] (S -> P) ---")
+    
+    mapa_usuarios_s_para_p = mapas['usuario']
+    mapa_setores_s_para_p = mapas['Setor']
+        
+    total_usuarios = len(mapa_usuarios_s_para_p)
+    total_inseridos = 0
+    
+    print(f"   -> Verificando existência de usuários para inserção...")
+    
+    cur_s.execute("SELECT nCdUsuario FROM public.Usuario")
+    todos_ids_s = {linha['ncdusuario'] for linha in cur_s.fetchall()}
+
+    for id_s in todos_ids_s:
+        if id_s not in mapa_usuarios_s_para_p:
+            try:
+                cur_s.execute("SELECT * FROM public.Usuario WHERE nCdUsuario = %s", (id_s,))
+                linha_s = cur_s.fetchone()
+                
+                if not linha_s:
+                    continue 
+
+                dados_p_novo = {}
+                dados_p_novo['nome'] = linha_s['cnmusuario']
+                dados_p_novo['cpf'] = linha_s['ccpf']
+                dados_p_novo['status'] = 'Ativo' if bool(linha_s['bativo']) else 'Inativo'
+                dados_p_novo['cargo'] = buscar_nome_cargo(cur_s, linha_s['ncdcargo'])
+                dados_p_novo['genero'] = descobrir_genero(linha_s['cnmusuario'])
+                dados_p_novo['senha'] = linha_s['csenha'] if not str(linha_s['csenha']).startswith('$2') else '***hashed***'
+                
+                id_s_setor = linha_s.get('ncdsetor')
+                dados_p_novo['fk_setor_id'] = mapa_setores_s_para_p.get(id_s_setor)
+                
+                id_s_gestor = linha_s.get('ncdgestor')
+                dados_p_novo['fk_supervisor_id'] = mapa_usuarios_s_para_p.get(id_s_gestor) if id_s_gestor else 'lastval()'                
+
+                if dados_p_novo['fk_supervisor_id'] == 'lastval()':
+                    del dados_p_novo['fk_supervisor_id']
+                    colunas = ", ".join(dados_p_novo.keys()) + ", fk_supervisor_id"
+                    valores_placeholder = ", ".join(["%s"] * len(dados_p_novo)) + ", lastval()"
+                else:
+                    colunas = ", ".join(dados_p_novo.keys())
+                    valores_placeholder = ", ".join(["%s"] * len(dados_p_novo))
+
+                valores = list(dados_p_novo.values())
+                
+                sql_insert = f"INSERT INTO public.usuario ({colunas}) VALUES ({valores_placeholder}) RETURNING id;"
+                cur_p.execute(sql_insert, valores)
+                novo_id_p = cur_p.fetchone()['id']
+                
+                mapa_usuarios_s_para_p[id_s] = novo_id_p
+                total_inseridos += 1
+                print(f"   Usuário Inserido (ID P: {novo_id_p})")
+
+                dados_p_novo['id'] = novo_id_p
+
+                logar_insercao(cur_s, 'usuario', novo_id_p, id_s, dados_p_novo)
+
+            except Exception as e_item:
+                print(f"   Erro: Falha ao inserir Usuário S:{id_s}: {e_item}")
+                try: cur_p.connection.rollback()
+                except: pass
+    
+    print(f"   -> Verificação concluída. {total_inseridos} usuários foram inseridos.")
+
 def sincronizar_habilidades(cur_p, cur_s, mapas):
-    print("\n--- 3. Sincronizando Habilidades (S -> P) ---")
+    print("\n--- 4. Sincronizando Habilidades (S -> P) ---")
     
     mapa_usuarios_s_para_p = mapas['usuario']
     mapa_habilidades_s_para_p = mapas['Habilidade']
-
-    if not mapa_usuarios_s_para_p or not mapa_habilidades_s_para_p:
-        print("   -> Mapas de usuário ou habilidade vazios. Pulando.")
-        return
 
     links_p_esperados = set()
     try:
@@ -226,6 +304,7 @@ def sincronizar_habilidades(cur_p, cur_s, mapas):
         cur_p.execute("SELECT fk_usuario_id, fk_habilidade_id FROM public.usuario_habilidade")
         for linha_p in cur_p:
             links_p_atuais.add((linha_p['fk_usuario_id'], linha_p['fk_habilidade_id']))
+            
     except Exception as e:
         print(f"  [ERRO] Não consegui ler 'usuario_habilidade' do Primário: {e}")
         return
@@ -234,7 +313,7 @@ def sincronizar_habilidades(cur_p, cur_s, mapas):
     links_para_inserir = links_p_esperados - links_p_atuais
 
     if links_para_deletar:
-        print(f"   -> Opa, achei {len(links_para_deletar)} links de habilidade para apagar.")
+        print(f"   -> Foi achado {len(links_para_deletar)} links de habilidade para apagar.")
         for id_p_usuario, id_p_habilidade in links_para_deletar:
             try:
                 cur_p.execute(
@@ -245,7 +324,7 @@ def sincronizar_habilidades(cur_p, cur_s, mapas):
                 print(f"   [ERRO] Falha ao apagar link P_User:{id_p_usuario}, P_Hab:{id_p_habilidade}: {e_del}")
 
     if links_para_inserir:
-        print(f"   -> Opa, achei {len(links_para_inserir)} links de habilidade para inserir.")
+        print(f"   -> Foi encontrado {len(links_para_inserir)} links de habilidade para inserir.")
         for id_p_usuario, id_p_habilidade in links_para_inserir:
             try:
                 cur_p.execute(
@@ -278,18 +357,28 @@ def main():
         
         sincronizar_updates_usuarios(cur_p, cur_s, mapas)
         
+        sincronizar_novos_usuarios(cur_p, cur_s, mapas)
+
+        mapas = carregar_mapas_traducao(cur_s)
+
         sincronizar_habilidades(cur_p, cur_s, mapas)
 
         print("\n--- FIM DA SINCRONIZAÇÃO ---")
         print("   -> Salvando alterações no banco PRIMÁRIO...")
         conn_p.commit()
         print("   -> Script concluído com sucesso.")
+        print("   -> Salvando alterações no banco SECUNDÁRIO...")
+        conn_s.commit()
+        print("   -> Log atualizado com sucesso no SECUNDÁRIO.")
 
     except Exception as e_geral:
         print(f"        ERRO GERAL NO CDC: {e_geral}")
         if conn_p:
             print("   -> Revertendo alterações no PRIMÁRIO (Rollback)...")
             conn_p.rollback()
+        if conn_s:
+            print("   -> Revertendo alterações no SECUNDÁRIO (Rollback)...")
+            conn_s.rollback()
 
             
     finally:
