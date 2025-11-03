@@ -372,7 +372,7 @@ def pre_processar_administracao(cur_p, cur_s, linha_p_dict, mapa_log_completo):
     """Aplica Hashing BCrypt na senha do Administrador."""
     senha_plain = linha_p_dict.get('senha')
     
-    if senha_plain and not senha_plain.startswith('$2'): 
+    if senha_plain and not senha_plain.startswith('$2') and senha_plain != "criptografadoSegundoAnoBcrypt$2": 
         print(f"   * HASHING: Senha para Administracao ID {linha_p_dict['id']}...")
         senha_bytes = senha_plain.encode('utf-8')
         salt = bcrypt.gensalt(rounds=10) 
@@ -416,7 +416,7 @@ def pre_processar_setor(cur_p, cur_s, linha_p_dict, mapa_log_completo):
 def pre_processar_usuario(cur_p, cur_s, linha_p_dict, mapa_log_completo):
     
     senha_plain = linha_p_dict.get('senha')
-    if senha_plain and not senha_plain.startswith('$2'): 
+    if senha_plain and not senha_plain.startswith('$2') and senha_plain != "criptografadoSegundoAnoBcrypt$2": 
         print(f"   * HASHING: Senha para Usuario ID {linha_p_dict['id']}...")
         senha_bytes = senha_plain.encode('utf-8')
         salt = bcrypt.gensalt(rounds=10) 
