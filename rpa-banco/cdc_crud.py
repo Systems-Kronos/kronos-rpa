@@ -269,7 +269,9 @@ def sincronizar_novos_usuarios(cur_p, cur_s, mapas):
                 total_inseridos += 1
                 print(f"   Usuário Inserido (ID P: {novo_id_p})")
 
-                logar_insercao(cur_s, 'usuario', id_s, novo_id_p, dados_p_novo)
+                dados_p_novo['id'] = novo_id_p
+
+                logar_insercao(cur_s, 'usuario', novo_id_p, id_s, dados_p_novo)
 
             except Exception as e_item:
                 print(f"   Erro: Falha ao inserir Usuário S:{id_s}: {e_item}")
@@ -283,10 +285,6 @@ def sincronizar_habilidades(cur_p, cur_s, mapas):
     
     mapa_usuarios_s_para_p = mapas['usuario']
     mapa_habilidades_s_para_p = mapas['Habilidade']
-
-    if not mapa_usuarios_s_para_p or not mapa_habilidades_s_para_p:
-        print("   -> Mapas de usuário ou habilidade vazios. Pulando.")
-        return
 
     links_p_esperados = set()
     try:
@@ -315,7 +313,7 @@ def sincronizar_habilidades(cur_p, cur_s, mapas):
     links_para_inserir = links_p_esperados - links_p_atuais
 
     if links_para_deletar:
-        print(f"   -> Opa, achei {len(links_para_deletar)} links de habilidade para apagar.")
+        print(f"   -> Foi achado {len(links_para_deletar)} links de habilidade para apagar.")
         for id_p_usuario, id_p_habilidade in links_para_deletar:
             try:
                 cur_p.execute(
@@ -326,7 +324,7 @@ def sincronizar_habilidades(cur_p, cur_s, mapas):
                 print(f"   [ERRO] Falha ao apagar link P_User:{id_p_usuario}, P_Hab:{id_p_habilidade}: {e_del}")
 
     if links_para_inserir:
-        print(f"   -> Opa, achei {len(links_para_inserir)} links de habilidade para inserir.")
+        print(f"   -> Foi encontrado {len(links_para_inserir)} links de habilidade para inserir.")
         for id_p_usuario, id_p_habilidade in links_para_inserir:
             try:
                 cur_p.execute(
@@ -369,12 +367,18 @@ def main():
         print("   -> Salvando alterações no banco PRIMÁRIO...")
         conn_p.commit()
         print("   -> Script concluído com sucesso.")
+        print("   -> Salvando alterações no banco SECUNDÁRIO...")
+        conn_s.commit()
+        print("   -> Log atualizado com sucesso no SECUNDÁRIO.")
 
     except Exception as e_geral:
         print(f"        ERRO GERAL NO CDC: {e_geral}")
         if conn_p:
             print("   -> Revertendo alterações no PRIMÁRIO (Rollback)...")
             conn_p.rollback()
+        if conn_s:
+            print("   -> Revertendo alterações no SECUNDÁRIO (Rollback)...")
+            conn_s.rollback()
 
             
     finally:
