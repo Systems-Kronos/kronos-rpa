@@ -89,6 +89,12 @@ def descobrir_genero(nome_completo):
         print(f"    Erro: Falha ao descobrir gênero de '{nome_completo}': {e}")
         return None
 
+def desformatar_telefone(telefone):
+    if not telefone:
+        return None
+    
+    return telefone.replace("(", "").replace(")", "").replace("-", "").replace(" ", "")
+
 # --- Funções Principais de Sincronização ---
 
 def sincronizar_deletes(cur_p, cur_s, mapa_usuarios_s_para_p):
@@ -168,6 +174,7 @@ def sincronizar_updates_usuarios(cur_p, cur_s, mapas):
             dados_p_desejado['cpf'] = linha_s['ccpf']
             dados_p_desejado['status'] = 'Ativo' if bool(linha_s['bativo']) else 'Inativo'
             dados_p_desejado['cargo'] = buscar_nome_cargo(cur_s, linha_s['ncdcargo'])
+            dados_p_desejado['telefone'] = desformatar_telefone(linha_s['ctelefone'])
             
             id_s_setor = linha_s.get('ncdsetor')
             dados_p_desejado['fk_setor_id'] = mapa_setores_s_para_p.get(id_s_setor)
@@ -243,6 +250,7 @@ def sincronizar_novos_usuarios(cur_p, cur_s, mapas):
                 dados_p_novo['status'] = 'Ativo' if bool(linha_s['bativo']) else 'Inativo'
                 dados_p_novo['cargo'] = buscar_nome_cargo(cur_s, linha_s['ncdcargo'])
                 dados_p_novo['genero'] = descobrir_genero(linha_s['cnmusuario'])
+                dados_p_novo['telefone'] = desformatar_telefone(linha_s['ctelefone'])
                 dados_p_novo['senha'] = linha_s['csenha'] if not str(linha_s['csenha']).startswith('$2') else '***hashed***'
                 
                 id_s_setor = linha_s.get('ncdsetor')
