@@ -414,7 +414,9 @@ def pre_processar_setor(cur_p, cur_s, linha_p_dict, mapa_log_completo):
     return linha_p_dict
 
 def pre_processar_usuario(cur_p, cur_s, linha_p_dict, mapa_log_completo):
-    
+    mapa_usuarios = mapa_log_completo['usuario']
+
+
     senha_plain = linha_p_dict.get('senha')
     if senha_plain and not senha_plain.startswith('$2') and senha_plain != "criptografadoSegundoAnoBcrypt$2": 
         print(f"   * HASHING: Senha para Usuario ID {linha_p_dict['id']}...")
@@ -423,7 +425,9 @@ def pre_processar_usuario(cur_p, cur_s, linha_p_dict, mapa_log_completo):
         hash_bcrypt = bcrypt.hashpw(senha_bytes, salt).decode('utf-8')
         linha_p_dict['senha'] = hash_bcrypt
     else:
-        linha_p_dict['senha'] = None
+        cur_s.execute("SELECT cSenha FROM public.Usuario WHERE nCdUsuario = %s", (mapa_usuarios[linha_p_dict['id']]['nCdDestino'],))
+
+        linha_p_dict['senha'] = cur_s.fetchone()['csenha']
 
     linha_p_dict['bGestor'] = True
 
